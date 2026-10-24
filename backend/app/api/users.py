@@ -15,7 +15,7 @@ from .deps import get_current_user
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 USER_COLLECTIONS = ["lectures", "transcript_segments", "transcript_chunks", "summaries", "study_notes", "quizzes",
-                    "quiz_attempts", "flashcards", "knowledge_maps", "chat_messages", "processing_jobs", "activity"]
+                    "quiz_attempts", "flashcards", "knowledge_maps", "chat_messages", "processing_jobs", "activity", "content_safety"]
 
 
 @router.patch("/me")

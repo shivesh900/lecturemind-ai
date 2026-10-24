@@ -52,6 +52,7 @@ INDEXES: dict[str, list[tuple[list[tuple[str, int]], dict]]] = {
     "quiz_attempts": [([("user_id", ASCENDING), ("created_at", DESCENDING)], {}), ([("quiz_id", ASCENDING)], {})],
     "flashcards": [([("lecture_id", ASCENDING)], {"unique": True}), ([("user_id", ASCENDING)], {})],
     "knowledge_maps": [([("lecture_id", ASCENDING)], {"unique": True})],
+    "content_safety": [([("lecture_id", ASCENDING)], {"unique": True}), ([("user_id", ASCENDING)], {})],
     "chat_messages": [([("lecture_id", ASCENDING), ("created_at", ASCENDING)], {})],
     "processing_jobs": [([("lecture_id", ASCENDING)], {}), ([("status", ASCENDING), ("created_at", ASCENDING)], {})],
     "activity": [([("user_id", ASCENDING), ("created_at", DESCENDING)], {})],

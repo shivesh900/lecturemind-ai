@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     openai_timeout_seconds: float = 120.0
     openai_max_retries: int = 4
     llm_max_output_tokens: int = 4000
+    # --- content safety (harsh / threatening language) ---
+    moderation_enabled: bool = True  # uses the OpenAI moderation endpoint when OPENAI_API_KEY is set
+    moderation_model: str = "omni-moderation-latest"
+    moderation_threshold: float = 0.5
+    moderation_batch_size: int = 32
     llm_temperature: float = 0.2
     chunk_target_chars: int = 3500  # ~900 tokens per map-step chunk
     chunk_overlap_segments: int = 1
@@ -69,6 +74,7 @@ class Settings(BaseSettings):
     job_max_attempts: int = 3
     job_retry_base_seconds: float = 5.0
     ai_rate_limit_per_minute: int = 12
+    safety_check_rate_limit_per_minute: int = 30
     auth_rate_limit_per_minute: int = 20
     demo_mode_without_key: bool = True
 

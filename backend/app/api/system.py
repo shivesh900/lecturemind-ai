@@ -32,6 +32,7 @@ async def status():
         "data_disclosure": (
             ("Transcripts are sent to the configured AI provider (OpenAI by default) to generate summaries, notes, "
              "quizzes, flashcards, knowledge maps, chat answers and embeddings."
+             + (" Transcript text is also sent to OpenAI moderation for the harsh-language check." if s.moderation_enabled else "")
              + (" Audio is sent to OpenAI for transcription." if provider == "openai" else
                 " Audio is transcribed locally on this server and is not sent anywhere."))
             if s.ai_enabled else

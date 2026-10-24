@@ -23,6 +23,7 @@ const ChatTab = lazy(() => import("./pages/lecture/ChatTab"));
 const QuizTab = lazy(() => import("./pages/lecture/QuizTab"));
 const FlashcardsTab = lazy(() => import("./pages/lecture/FlashcardsTab"));
 const KnowledgeTab = lazy(() => import("./pages/lecture/KnowledgeTab"));
+const SafetyTab = lazy(() => import("./pages/lecture/SafetyTab"));
 
 function PageFallback() {
   return (
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="quiz" element={<QuizTab />} />
             <Route path="flashcards" element={<FlashcardsTab />} />
             <Route path="knowledge" element={<KnowledgeTab />} />
+            <Route path="safety" element={<SafetyTab />} />
           </Route>
         </Route>
         <Route path="/dashboard" element={<Navigate to="/app" replace />} />

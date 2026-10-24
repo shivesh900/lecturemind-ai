@@ -273,3 +273,17 @@ export interface SearchGroup {
   matches: SearchMatch[];
   score: number;
 }
+
+// ---- content safety (harsh / threatening language) ----
+export type SafetyCategory = "threat" | "hate" | "insult" | "profanity";
+export type SafetySeverity = "low" | "medium" | "high";
+export interface SafetyMatch { term: string; masked: string; start: number; end: number; category: SafetyCategory; severity: SafetySeverity; label: string; kind: "word" | "phrase"; }
+export interface SafetyFlag { category: SafetyCategory; severity: SafetySeverity; source: "lexicon" | "ai_moderation"; terms: string[]; matches: SafetyMatch[]; score?: number; moderation_categories?: string[]; }
+export interface FlaggedSegment { segment_idx: number; start: number; end: number; text: string; categories: SafetyCategory[]; severity: SafetySeverity; sources: string[]; terms: string[]; flags: SafetyFlag[]; }
+export interface ModerationInfo { status: "used" | "disabled" | "failed"; model: string | null; error: string | null; reason?: string; }
+export interface SafetyReport {
+  lecture_id: string; scanned_at: string; segments_scanned: number; lexicon_version: string; moderation: ModerationInfo;
+  summary: { total_flagged: number; by_category: Record<SafetyCategory, number>; by_severity: Record<SafetySeverity, number> };
+  flagged: FlaggedSegment[];
+}
+export interface SafetyCheckResult { text: string; flagged: boolean; categories: SafetyCategory[]; severity: SafetySeverity | null; sources: string[]; terms: string[]; flags: SafetyFlag[]; matches: SafetyMatch[]; moderation: ModerationInfo; }

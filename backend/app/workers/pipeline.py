@@ -19,7 +19,7 @@ from bson import ObjectId
 
 from ..core.config import get_settings
 from ..models.documents import PIPELINE_STEPS, STEP_LABELS, utcnow
-from ..services import audio_extractor, demo_extractor, embedding_service
+from ..services import audio_extractor, content_safety_service, demo_extractor, embedding_service
 from ..services.flashcard_generator import generate_flashcards
 from ..services.knowledge_extractor import extract_knowledge
 from ..services.llm_client import LLMError, LLMUnavailable
@@ -32,7 +32,7 @@ from ..services.transcription_service import TranscriptionError, get_transcriber
 
 log = logging.getLogger(__name__)
 
-STEP_WEIGHTS = {"extract_audio": 5, "transcribe": 40, "process_transcript": 3, "embeddings": 5, "summary": 20,
+STEP_WEIGHTS = {"extract_audio": 5, "transcribe": 40, "process_transcript": 3, "content_safety": 2, "embeddings": 5, "summary": 20,
                 "notes": 10, "knowledge_map": 6, "quiz": 6, "flashcards": 5}
 
 
@@ -239,6 +239,18 @@ class Pipeline:
         ])
         await self._set({"chunk_count": len(chunks)})
         self._demo = None
+
+    async def step_content_safety(self):
+        # Non-fatal by design: the lexicon always runs; AI moderation errors are recorded, not raised.
+        try:
+            await content_safety_service.scan_lecture(self.db, self.lecture)
+        except Exception as exc:
+            log.warning("Content safety scan failed (non-fatal): %s", exc)
+            await self.db.content_safety.replace_one(
+                {"lecture_id": self.lecture_id},
+                {"lecture_id": self.lecture_id, "user_id": self.lecture["user_id"], "scanned_at": utcnow(), "flagged": [],
+                 "summary": content_safety_service.summarize([]), "error": f"{type(exc).__name__}: {str(exc)[:200]}",
+                 "moderation": {"status": "failed", "error": "scan failed"}}, upsert=True)
 
     async def step_embeddings(self):
         if not self.ai:

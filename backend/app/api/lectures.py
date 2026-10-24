@@ -24,7 +24,7 @@ from .deps import get_current_user, get_owned_lecture
 router = APIRouter(prefix="/api/lectures", tags=["lectures"])
 
 LECTURE_CHILD_COLLECTIONS = ["transcript_segments", "transcript_chunks", "summaries", "study_notes", "quizzes",
-                             "quiz_attempts", "flashcards", "knowledge_maps", "chat_messages", "processing_jobs"]
+                             "quiz_attempts", "flashcards", "knowledge_maps", "chat_messages", "processing_jobs", "content_safety"]
 
 
 def public_lecture(doc: dict) -> dict:
@@ -165,6 +165,7 @@ async def get_lecture(lecture: dict = Depends(get_owned_lecture)):
         "quiz": await db.quizzes.count_documents({"lecture_id": lid}, limit=1) > 0,
         "flashcards": await db.flashcards.count_documents({"lecture_id": lid}, limit=1) > 0,
         "knowledge_map": await db.knowledge_maps.count_documents({"lecture_id": lid}, limit=1) > 0,
+        "safety": await db.content_safety.count_documents({"lecture_id": lid}, limit=1) > 0,
     }
     return {"lecture": out}
 
@@ -204,7 +205,8 @@ async def reprocess_lecture(full: bool = False, lecture: dict = Depends(get_owne
         # resume from the first step that did not complete
         reset = [s for s in PIPELINE_STEPS if steps.get(s, {}).get("status") not in ("completed", "skipped")]
         if not reset:
-            reset = PIPELINE_STEPS[4:]  # regenerate study materials
+            # regenerate study materials (and re-run the content-safety scan)
+            reset = ["content_safety"] + PIPELINE_STEPS[PIPELINE_STEPS.index("summary"):]
     job_id = await create_job(get_db(), lecture, reset_steps=reset)
     await job_queue.enqueue(job_id)
     return {"ok": True, "job_id": str(job_id), "reset_steps": reset}

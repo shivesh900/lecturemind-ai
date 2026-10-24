@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
-from .api import ai, auth, dashboard, exports, lectures, search, system, transcript, users
+from .api import ai, auth, dashboard, exports, lectures, safety, search, system, transcript, users
 from .core.config import get_settings
 from .core.database import close_db, init_indexes
 from .core.errors import install_error_handlers
@@ -59,7 +59,7 @@ def create_app() -> FastAPI:
         return response
 
     install_error_handlers(app)
-    for r in (auth, users, lectures, transcript, ai, exports, dashboard, search, system):
+    for r in (auth, users, lectures, transcript, ai, safety, exports, dashboard, search, system):
         app.include_router(r.router)
     return app
 

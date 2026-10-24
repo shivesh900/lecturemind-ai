@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from ..core.database import get_db
 from ..models.documents import utcnow
 from ..schemas.lecture import TranscriptUpdate
+from ..services import content_safety_service
 from .deps import get_owned_lecture
 
 router = APIRouter(prefix="/api/lectures", tags=["transcript"])
@@ -53,6 +54,11 @@ async def edit_transcript(body: TranscriptUpdate, lecture: dict = Depends(get_ow
             if text != ch["text"]:
                 await db.transcript_chunks.update_one({"_id": ch["_id"]}, {"$set": {"text": text, "stale_embedding": True}})
         await db.lectures.update_one({"_id": lecture["_id"]}, {"$set": {"transcript_edited_at": utcnow(), "updated_at": utcnow()}})
+        # re-scan for harsh / threatening language (non-fatal)
+        try:
+            await content_safety_service.scan_lecture(db, lecture)
+        except Exception:  # pragma: no cover - the scan never blocks an edit
+            pass
     return {"ok": True, "updated": changed}
 
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { AudioLines, Check, Copy, Download, FileDown, Pencil, Save, Search, X, Crosshair, ChevronUp, ChevronDown } from "lucide-react";
+import { AudioLines, Check, Copy, Download, FileDown, Pencil, Save, Search, X, Crosshair, ChevronUp, ChevronDown, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Textarea } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { ErrorNote } from "@/components/common";
 import { useApi } from "@/hooks/useApi";
 import { ApiError, download, exportUrl, patch } from "@/services/api";
 import { cn } from "@/utils/cn";
-import type { Transcript } from "@/types";
+import type { SafetyReport, Transcript } from "@/types";
 import { useWorkspace } from "./context";
 import { NotReady, TabSkeleton, TimeChip } from "./shared";
 
@@ -24,6 +24,8 @@ export default function TranscriptTab() {
   const { lecture, player } = useWorkspace();
   const ready = lecture.steps?.transcribe?.status === "completed";
   const { data, error, loading, reload, setData } = useApi<Transcript>(ready ? `/api/lectures/${lecture.id}/transcript` : null, [ready]);
+  const safety = useApi<SafetyReport>(ready && lecture.status !== "processing" && lecture.status !== "queued" ? `/api/lectures/${lecture.id}/safety` : null, [ready, lecture.status]);
+  const flagByIdx = useMemo(() => Object.fromEntries((safety.data?.flagged || []).map((f) => [f.segment_idx, f])), [safety.data]);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState(false);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
@@ -79,6 +81,7 @@ export default function TranscriptTab() {
       await patch(`/api/lectures/${lecture.id}/transcript`, { segments: changed.map(([idx, text]) => ({ idx: Number(idx), text })) });
       setData({ ...data, segments: segments.map((s) => (drafts[s.idx] !== undefined ? { ...s, text: drafts[s.idx].trim(), edited: true } : s)) });
       toast.success(`Saved ${changed.length} edited segment${changed.length > 1 ? "s" : ""}`);
+      safety.reload(true);
       setEditing(false);
       setDrafts({});
     } catch (e) { toast.error((e as ApiError).message); } finally { setSaving(false); }
@@ -130,14 +133,19 @@ export default function TranscriptTab() {
         {segments.map((s) => {
           const active = s.idx === activeIdx;
           const isMatch = matches.includes(s.idx);
+          const flag = flagByIdx[s.idx];
           return (
             <div key={s.idx} ref={(el) => (refs.current[s.idx] = el)}
-              className={cn("group flex gap-3 px-4 py-3 transition-colors sm:gap-4", active && "bg-gradient-to-r from-indigo-500/15 to-transparent shadow-[inset_3px_0_0_hsl(var(--primary))]",
+              title={flag ? `Flagged: ${flag.categories.join(", ")} (${flag.severity} severity) — see the Safety tab` : undefined}
+              className={cn("group flex gap-3 px-4 py-3 transition-colors sm:gap-4",
+                flag && !active && (flag.severity === "high" ? "bg-red-500/[0.04] shadow-[inset_3px_0_0_rgb(239_68_68/0.75)]" : "bg-amber-500/[0.04] shadow-[inset_3px_0_0_rgb(245_158_11/0.75)]"),
+                active && "bg-gradient-to-r from-indigo-500/15 to-transparent shadow-[inset_3px_0_0_hsl(var(--primary))]",
                 isMatch && matches[matchIdx] === s.idx && "bg-warning/10")}
             >
               <div className="flex w-14 shrink-0 flex-col items-start gap-1 pt-0.5">
                 <TimeChip t={s.start} onClick={(t) => player.seek(t)} />
                 {s.edited && <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground"><Check className="h-3 w-3" />edited</span>}
+                {flag && <span className={cn("flex items-center gap-0.5 text-[10px] font-medium", flag.severity === "high" ? "text-red-400" : "text-amber-400")}><ShieldAlert className="h-3 w-3" />{flag.severity}</span>}
               </div>
               <div className="min-w-0 flex-1">
                 {s.speaker && <div className="mb-0.5 text-xs font-semibold text-primary">{s.speaker}</div>}

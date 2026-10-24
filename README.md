@@ -34,6 +34,7 @@ React + TypeScript + Tailwind · FastAPI · MongoDB · Whisper (local or OpenAI)
 6. [FFmpeg setup](#ffmpeg-setup)
 7. [AI / API keys and demo mode](#ai--api-keys-and-demo-mode)
 8. [Privacy: what is sent where](#privacy-what-is-sent-where)
+   - [Harsh / threatening language detection](#harsh--threatening-language-detection)
 9. [Docker](#docker)
 10. [Deployment](#deployment)
 11. [Testing](#testing)
@@ -62,6 +63,7 @@ React + TypeScript + Tailwind · FastAPI · MongoDB · Whisper (local or OpenAI)
 | **Global search** | Keyword search across lecture titles, transcripts, notes and concepts, plus **semantic search** over transcript embeddings. Results are grouped by lecture with excerpts and timestamps that deep-link into the transcript, and are always scoped to the signed-in user |
 | **Library** | Search, filter by subject / status / date range, sort by newest/oldest/title, rename and edit metadata, delete with confirmation, reprocess failed lectures, quick links to summary and notes |
 | **Export Center** | Transcript TXT/DOCX/SRT, summary PDF/DOCX/MD, notes PDF/DOCX/MD/TXT, quiz PDF/DOCX/JSON (with answer key), flashcards CSV, full lecture JSON, all with clear filenames |
+| **Content safety** | Every transcript sentence is scanned for **profanity, insults/harassment, threats/violence and hate speech** (English, Hinglish and Tamil-English, incl. disguised spellings like `f*ck` / `sh1t`). A **Safety** tab shows counts, the flagged sentences with severity, masked words (reveal toggle) and click-to-seek timestamps; flagged lines are marked in the transcript; a *Check a sentence* box tests any text live. Optional OpenAI moderation adds context-aware checks. See [below](#harsh--threatening-language-detection) |
 | **Dashboard** | Real DB stats (lectures processed, learning hours, notes, quizzes completed, average score), live processing jobs, recent lectures, recently generated materials, and a weekly activity chart |
 | **Settings** | Profile, theme (dark/light/system), default language, default note style, password, data deletion, and a read-only AI/system status panel with admin setup instructions. **Keys are never shown** |
 | **UX** | Premium dark navy/indigo/violet design, light theme, responsive layout (sidebar on desktop, bottom nav on mobile), skeleton loaders, toasts, empty states, accessible labels and keyboard support |
@@ -183,9 +185,54 @@ Keys live only in the server's environment. The browser only ever sees booleans 
 ## Privacy: what is sent where
 
 * **When `OPENAI_API_KEY` is set, lecture transcripts (text) are sent to OpenAI** (or to the provider at `OPENAI_BASE_URL`) to generate summaries, notes, quizzes, flashcards, knowledge maps, chat answers and embeddings.
+* **When `OPENAI_API_KEY` is set and `MODERATION_ENABLED=true`, transcript text is also sent to OpenAI's moderation endpoint** for the harsh-language check. Set `MODERATION_ENABLED=false` to keep that check local (lexicon only).
 * **When `TRANSCRIPTION_PROVIDER` resolves to `openai`, the audio itself is sent to OpenAI** for transcription. With `local`, audio never leaves your server.
 * Without a key, nothing leaves the server.
 * This disclosure is also shown in the app (upload page and settings). Uploaded files are stored under random names in per-user folders, are only read by FFmpeg (never executed), and are deleted with the lecture or account.
+
+## Harsh / threatening language detection
+
+After transcription, a **content-safety** pipeline step scans every transcript segment and stores the result in the `content_safety` collection (one document per lecture: segment index, start/end timestamps, categories, severity, matched terms with character spans, and the source of each flag).
+
+**Categories:** `profanity`, `insult` (insults / harassment), `threat` (threats / violence, incl. incitement to self-harm), `hate`. **Severity:** `low`, `medium`, `high`.
+
+**Two detectors, merged per sentence**
+
+1. **Lexicon (always on, local, free)** – `backend/app/services/content_safety_service.py`
+   * A curated list of English, Hinglish (e.g. *chutiya, madarchod, gandu, kamina*) and Tamil-English (e.g. *otha, punda, thevidiya, loosu*) abusive words in transliteration.
+   * Word-boundary matching (so *assess*, *class*, *Scunthorpe*, *hello* are **not** flagged), leetspeak and masking tolerance (`f*ck`, `f**k`, `sh1t`, `b!tch`, `fuuuck`).
+   * Regex threat patterns: *"I will kill/stab/shoot you"*, *"I'm gonna beat you"*, *"you're dead"*, *"watch your back"*, *"I know where you live"*, *"kill yourself / kys"*, group-hate calls for violence, plus Hinglish (*maar dunga, jaan se maar, khatam kar dunga, dekh lunga*) and Tamil-English (*kolluven, adichiduven*) threats.
+   * Threat patterns need a **person as the target**, so technical phrases like *"kill the process"* or *"kill -9"* are not flagged.
+2. **AI moderation (optional)** – when `OPENAI_API_KEY` is set and `MODERATION_ENABLED=true`, segments are sent in batches to OpenAI's moderation endpoint (`MODERATION_MODEL`, default `omni-moderation-latest`). Its `harassment`, `harassment/threatening`, `hate`, `hate/threatening` and `violence` scores are mapped onto the same categories (severity: ≥0.85 high, ≥0.6 medium, otherwise low; a category counts when the API flags it or its score ≥ `MODERATION_THRESHOLD`). Each flag is labelled **Lexicon** or **AI moderation** in the UI and API.
+
+**Non-fatal by design:** if the moderation call fails (no network, rate limit, an OpenAI-compatible endpoint without `/moderations`), the lexicon results are kept and the failure is recorded (`moderation.status = "failed"`). A safety-scan error never fails lecture processing.
+
+**When it re-runs:** on processing and reprocessing, automatically after a transcript edit, and on demand with the **Re-scan** button (`POST /api/lectures/{id}/safety/rescan`). Lectures processed before this feature are scanned the first time their Safety tab is opened.
+
+**API**
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/lectures/{id}/safety` | Summary counts by category and severity + flagged segments with timestamps (ownership-checked) |
+| POST | `/api/lectures/{id}/safety/rescan` | Re-scan the current transcript (ownership-checked, AI rate limit) |
+| POST | `/api/safety/check` | `{"text": "..."}` (max 2000 chars) → flagged?, categories, severity, matches with spans and masked forms. Auth required, rate-limited (`SAFETY_CHECK_RATE_LIMIT_PER_MINUTE`) |
+
+**Settings**
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `MODERATION_ENABLED` | `true` | Use OpenAI moderation when a key is set (set `false` to keep everything local) |
+| `MODERATION_MODEL` | `omni-moderation-latest` | Moderation model |
+| `MODERATION_THRESHOLD` | `0.5` | Minimum category score that counts as a flag |
+| `MODERATION_BATCH_SIZE` | `32` | Segments per moderation request |
+| `SAFETY_CHECK_RATE_LIMIT_PER_MINUTE` | `30` | Per-user limit for the *Check a sentence* endpoint |
+
+**Honest limits**
+
+* A word list **cannot understand context, sarcasm, quotes or intent**. A lecturer quoting an insult, a history lecture about violence, or a sports-style *"we will beat you"* can be flagged, and new slang or creative spellings can be missed. Treat flags as pointers for review, not verdicts.
+* Transliterated Hindi/Tamil has many spellings; the lexicon covers common ones only. Extend `_LEXICON` / `_PHRASES` in `content_safety_service.py` for your context.
+* Speech recognition can mishear or soften swear words, so the scan is only as good as the transcript.
+* AI moderation needs an `OPENAI_API_KEY`, and **transcript text is then sent to OpenAI** for moderation. With no key (or `MODERATION_ENABLED=false`) the check is fully local.
 
 ## Docker
 
@@ -209,13 +256,13 @@ A setup that works on free/cheap tiers:
 ```bash
 cd backend
 pip install -r requirements-dev.txt
-pytest -q                       # 54 tests, ~20 s (downloads Whisper tiny once, ~75 MB)
+pytest -q                       # 82 tests, ~20 s (downloads Whisper tiny once, ~75 MB)
 pytest -q -m "not slow"         # skip the tests that run real Whisper
 TEST_MONGODB_URI=mongodb://localhost:27017 pytest -q   # run against a real MongoDB instead of the in-memory mock
 ```
 
 * **No paid APIs are called.** AI tests inject a fake LLM client that returns schema-valid objects. MongoDB is replaced by `mongomock-motor` unless `TEST_MONGODB_URI` is set.
-* Coverage: authentication, file validation (incl. a fake "mp3" that is really text), audio extraction from a generated MP4, **real speech transcription with Whisper tiny**, transcript cleaning/chunking, OpenAI-transcriber piece offsets (mocked), map-reduce summary (one map call per chunk, no giant prompt), hierarchical compression, notes, quiz normalisation, flashcards, knowledge-map sanitising, LLM JSON retry, chat refusal, ownership on every lecture endpoint, scoped search, all export formats, failed jobs (permanent vs retried, never marked completed, resume after recovery), rate limiting, library filters, quiz grading, data deletion.
+* Coverage: authentication, file validation (incl. a fake "mp3" that is really text), audio extraction from a generated MP4, **real speech transcription with Whisper tiny**, transcript cleaning/chunking, OpenAI-transcriber piece offsets (mocked), map-reduce summary (one map call per chunk, no giant prompt), hierarchical compression, notes, quiz normalisation, flashcards, knowledge-map sanitising, LLM JSON retry, chat refusal, ownership on every lecture endpoint, scoped search, all export formats, failed jobs (permanent vs retried, never marked completed, resume after recovery), rate limiting, library filters, quiz grading, data deletion, and **content safety** (clean text, profanity, leetspeak, threat patterns, false-positive guards like *assess/class/Scunthorpe/kill the process*, Hinglish/Tamil-English, moderation merge and failure with a mocked client, safety endpoints, ownership, re-scan on transcript edit).
 * **Audio fixture:** `backend/tests/fixtures/speech_sample.wav` is a ~8 s real speech clip generated with espeak-ng. Regenerate it with `backend/tests/fixtures/make_fixture.sh` (needs `espeak-ng` + `ffmpeg`), or record yourself reading *"Speech recognition converts spoken language into text. The acoustic model and the language model work together."* and save it as 16 kHz mono WAV with that name.
 * Frontend: `cd frontend && npm run build` runs a strict TypeScript check and a production build.
 
@@ -244,6 +291,7 @@ Interactive docs at `/docs`. Errors use one JSON shape: `{"error": {"code", "mes
 | GET/POST | `/api/lectures/{id}/flashcards` · POST `/flashcards/{card_id}/review` | Cards, regenerate, rate |
 | GET/POST/DELETE | `/api/lectures/{id}/chat` | History, ask, clear |
 | GET | `/api/lectures/{id}/export/{transcript\|summary\|notes\|quiz\|flashcards\|json}?format=` | Downloads |
+| GET/POST | `/api/lectures/{id}/safety` · POST `/safety/rescan` · POST `/api/safety/check` | Harsh / threatening language report, re-scan, ad-hoc sentence check |
 | GET | `/api/search?q=&mode=hybrid\|keyword\|semantic` | Global search (user-scoped) |
 | GET | `/api/dashboard/stats` · `/api/dashboard/activity?days=7&tz_offset_minutes=330` | Dashboard data |
 | GET | `/api/system/status` · `/api/system/health` | Non-secret configuration status / health |
@@ -298,6 +346,7 @@ The default queue runs inside the API process (simple, no extra services): jobs 
 * Accuracy depends on audio quality and model size; heavy accents, jargon or noisy rooms benefit from `small`/`medium`. Edit the transcript and regenerate materials if needed.
 * AI output quality depends on the chosen model; all generation is grounded in the transcript, but always double-check important facts against the lecture.
 * Editing the transcript updates chat/search text immediately, but summaries/notes/quiz are only refreshed when you click *Regenerate*.
+* Harsh-language detection without a key uses a word/phrase list, which misses context and sarcasm (see [above](#harsh--threatening-language-detection)).
 * Demo mode (no key) produces simple extractive material by design. It is meant to show the pipeline, not to replace the AI features.
 * The in-process queue is meant for a single API instance (see *Scaling the worker*).
 

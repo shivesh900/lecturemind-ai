@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate, useParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  AudioLines, Brain, ChevronLeft, FileText, Gauge, Layers, LayoutGrid, MessagesSquare, Network, NotebookPen, Pause, Play, RefreshCw, Rewind, FastForward, Volume2, Clock, Languages, Cpu,
+  AudioLines, Brain, ChevronLeft, FileText, Gauge, Layers, LayoutGrid, MessagesSquare, Network, NotebookPen, Pause, Play, RefreshCw, Rewind, ShieldAlert, FastForward, Volume2, Clock, Languages, Cpu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +23,7 @@ const TABS = [
   { to: "quiz", label: "Quiz", icon: Brain },
   { to: "flashcards", label: "Flashcards", icon: Layers },
   { to: "knowledge", label: "Knowledge Map", icon: Network },
+  { to: "safety", label: "Safety", icon: ShieldAlert },
 ];
 
 const SPEEDS = [1, 1.25, 1.5, 2, 0.75];
