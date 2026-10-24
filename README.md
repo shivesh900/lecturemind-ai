@@ -364,3 +364,15 @@ The default queue runs inside the API process (simple, no extra services): jobs 
 ---
 
 Built as an **Automatic Speech Recognition** course project. MIT License.
+
+## Live deployment (single container)
+
+A public instance runs at **https://lecturemind.sites.tab.bot/** (one always-on Linux box: FastAPI serves the API *and* the built React app on the same origin; data in MongoDB Atlas, free M0 cluster in Mumbai).
+
+How it is wired:
+
+- `backend/app/main.py` serves the built frontend when `FRONTEND_DIST` points at a `vite build` output (SPA fallback for client-side routes; `/api/*` is never shadowed). Same origin = no CORS or cross-site cookie issues.
+- `deploy/tab-box/start.sh` installs FFmpeg if missing, adds a swap file (the box has ~0.5 GB RAM; Whisper `base` needs headroom), builds a venv from `requirements.txt` and keeps `uvicorn` running (restarts it if it exits). Secrets come from a `.env` next to it (never committed): `MONGODB_URI`, `MONGODB_DB`, `JWT_SECRET`, `COOKIE_SECURE=true`, optional `OPENAI_API_KEY`.
+- `Dockerfile` (repo root) is the same idea as one image: it builds the frontend, installs FFmpeg, bakes the Whisper `base` model in, and serves everything on port 7860. It works on any Docker host (Render, Railway, Fly.io, Google Cloud Run, or a Hugging Face Docker Space; note HF Docker Spaces now need a PRO plan).
+
+Limits of the free setup: CPU-only Whisper (a 1-hour lecture takes a while), uploaded audio lives on the server's disk, and without `OPENAI_API_KEY` the app runs in its labelled demo mode (real transcription, keyword-based study material). Add the key to `.env` and restart to switch on the AI features.
