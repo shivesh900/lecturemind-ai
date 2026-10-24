@@ -1,0 +1,27 @@
+# Render blueprint for the backend (frontend goes on Vercel; see README).
+services:
+  - type: web
+    name: lecturemind-api
+    runtime: docker
+    rootDir: backend
+    plan: starter
+    healthCheckPath: /api/system/health
+    disk:
+      name: storage
+      mountPath: /data/storage
+      sizeGB: 5
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: WHISPER_MODEL
+        value: base

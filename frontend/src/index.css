@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 228 33% 98%;
+    --foreground: 230 35% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 230 35% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 35% 12%;
+    --primary: 239 84% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 230 30% 94%;
+    --secondary-foreground: 230 35% 18%;
+    --muted: 230 25% 94%;
+    --muted-foreground: 230 12% 44%;
+    --accent: 258 90% 96%;
+    --accent-foreground: 258 60% 40%;
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 60% 40%;
+    --warning: 38 92% 48%;
+    --border: 230 22% 88%;
+    --input: 230 22% 86%;
+    --ring: 239 84% 62%;
+    --radius: 0.75rem;
+    --sidebar: 0 0% 100%;
+    --grid: 230 30% 90%;
+  }
+  .dark {
+    --background: 230 47% 6%;
+    --foreground: 226 40% 94%;
+    --card: 230 42% 9%;
+    --card-foreground: 226 40% 94%;
+    --popover: 230 42% 10%;
+    --popover-foreground: 226 40% 94%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 231 35% 15%;
+    --secondary-foreground: 226 40% 92%;
+    --muted: 231 33% 14%;
+    --muted-foreground: 228 18% 64%;
+    --accent: 258 45% 20%;
+    --accent-foreground: 258 95% 86%;
+    --destructive: 0 70% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 60% 48%;
+    --warning: 38 92% 56%;
+    --border: 231 30% 17%;
+    --input: 231 30% 20%;
+    --ring: 239 84% 67%;
+    --sidebar: 230 46% 7%;
+    --grid: 231 35% 13%;
+  }
+  * { @apply border-border; }
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-background text-foreground antialiased; font-feature-settings: "cv11", "ss01"; }
+  ::selection { background: hsl(var(--primary) / 0.3); }
+}
+
+@layer components {
+  .gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(100deg, #818cf8 0%, #a78bfa 45%, #e879f9 100%);
+  }
+  .glass { @apply bg-card/70 backdrop-blur-xl; }
+  .bg-grid {
+    background-image: linear-gradient(hsl(var(--grid)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--grid)) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .hero-glow {
+    background: radial-gradient(60% 50% at 50% 0%, hsl(239 84% 62% / 0.28) 0%, transparent 70%),
+      radial-gradient(40% 40% at 85% 20%, hsl(270 90% 60% / 0.18) 0%, transparent 70%);
+  }
+  .card-hover { @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow; }
+  .prose-notes h1 { @apply mb-3 text-2xl font-bold tracking-tight; }
+  .prose-notes h2 { @apply mb-2 mt-7 border-b pb-1.5 text-xl font-semibold tracking-tight; }
+  .prose-notes h3 { @apply mb-1.5 mt-5 text-base font-semibold text-primary; }
+  .prose-notes p { @apply my-2 leading-7 text-foreground/90; }
+  .prose-notes ul { @apply my-2 list-disc space-y-1 pl-5; }
+  .prose-notes ol { @apply my-2 list-decimal space-y-1 pl-5; }
+  .prose-notes li { @apply leading-7 text-foreground/90 marker:text-primary/70; }
+  .prose-notes strong { @apply font-semibold text-foreground; }
+  .prose-notes code { @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-primary; }
+  .prose-notes blockquote { @apply my-3 rounded-r-lg border-l-4 border-warning/60 bg-warning/10 px-4 py-2 text-sm; }
+  .prose-notes table { @apply my-3 w-full text-sm; }
+  .prose-notes th, .prose-notes td { @apply border px-2 py-1 text-left; }
+}
+
+.react-flow__attribution { display: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
