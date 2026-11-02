@@ -126,8 +126,12 @@ class LLMClient:
         out: list[list[float]] = []
         for i in range(0, len(texts), batch_size):
             batch = [t[:8000] if t.strip() else " " for t in texts[i : i + batch_size]]
-            resp = await client.embeddings.create(model=s.openai_embedding_model, input=batch)
-            out.extend([d.embedding for d in sorted(resp.data, key=lambda d: d.index)])
+            extra = {"dimensions": s.openai_embedding_dimensions} if s.openai_embedding_dimensions > 0 else {}
+            resp = await client.embeddings.create(model=s.openai_embedding_model, input=batch, **extra)
+            # Some OpenAI-compatible endpoints (e.g. Gemini) omit `index`; fall back to response order.
+            data = list(resp.data)
+            ordered = sorted(enumerate(data), key=lambda p: p[1].index if getattr(p[1], "index", None) is not None else p[0])
+            out.extend([d.embedding for _, d in ordered])
         return out
 
 

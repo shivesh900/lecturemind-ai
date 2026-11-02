@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     openai_base_url: str = ""  # optional: any OpenAI-compatible endpoint
     openai_chat_model: str = "gpt-4o-mini"
     openai_embedding_model: str = "text-embedding-3-small"
+    openai_embedding_dimensions: int = 0  # 0 = model default; e.g. 768 for gemini-embedding-001
     openai_timeout_seconds: float = 120.0
     openai_max_retries: int = 4
     llm_max_output_tokens: int = 4000
